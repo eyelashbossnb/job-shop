@@ -1969,7 +1969,7 @@
         "DC2", "DD2", "DG2",
         "D10", "D60", "D1", "D51"
     ];
-    const specialRates = {
+const specialRates = {
         'default': 0.8,   // 未登入 (8折)
         'normal': 0.56,   // 會員 (5.6折)
         'kylie': 0.48,    // 凱莉 (4.8折)
@@ -2025,6 +2025,28 @@
     function clearQuantitiesStorage() {
         localStorage.removeItem('cart_quantities');
         for (let key in quantities) { quantities[key] = 0; }
+    }
+
+    // 🌟 核心精準名單：僅包含提供給我的特惠代碼與數字[cite: 1]
+    function isTargetSpecial紋繡商品(id) {
+        if (!id) return false;
+        const allowedIds = [
+            'TC1', 'TC2', 'TC9', 'TC12', 'TC13', 
+            'TF35', 'TF36', 'TF38', 'TF48', 'TF49', 'TF50', 
+            'TF40', 'TF41', 'TF42', 'TF43', 'TF44', 'TF45', 'TF46', 'TF47',
+            'TD4', 'TD7', 'TD8', 'TD10', 'TD11', 'TD12', 'TD13', 'TD14', 'TD15', 'TD16', 'TD17', 'TD23', 'TD24',
+            'TE1', 'TE2', 'TE3', 'TE4', 'TE5', 'TE6', 'TE7', 'TE8', 'TE9', 'TE10', 'TE11', 'TE15', 'TE16', 
+            'TE17', 'TE18', 'TE20', 'TE21', 'TE22', 'TE23', 'TE24', 'TE25', 'TE26', 'TE27', 'TE28', 'TE29', 
+            'TE30', 'TE31', 'TE32', 'TE33', 'TE34', 'TE35', 'TE36', 'TE37', 'TE38', 'TE39', 'TE40',
+            'TF2', 'TF3', 'TF4', 'TF11', 'TF15', 'TF16', 'TF18', 'TF19', 'TF20', 'TF21', 'TF22', 'TF23', 
+            'TF24', 'TF25', 'TF26', 'TF27', 'TF28', 'TF29', 'TF30', 'TF31', 'TF32', 'TF39', 'TF33', 'TF34',
+            'TG11', 'TG12', 'TG13', 
+            'TH1', 'TH2', 'TH6', 'TH7', 'TH8', 'TH9', 'TH10', 'TH11', 'TH13', 'TH14', 'TH15', 'TH16', 'TH22', 'TH23', 'TH26', 'TH27', 'TH28', 'TH29',
+            'TJ1', 'TJ2', 'TJ4', 'TJ5', 'TJ7', 'TJ8', 'TJ9', 'TJ12', 'TJ14', 'TJ15',
+            'TK9', 'TK10', 'TB1', 'TB3', 'TB4',
+            'TL6', 'TL7', 'TL8', 'TL9', 'TL17', 'TL18', 'TL19', 'TL20', 'G36', 'G37'
+        ];
+        return allowedIds.includes(id);
     }
 
     function loadInventory(callback) {
@@ -2190,7 +2212,6 @@ function verifyMember() {
 
                     render(); updateTotal();
                     
-                    // 🌟【自動检查過期提示】
                     if (response.msg && (response.msg.includes("過期") || response.msg.includes("逾期"))) {
                         alert(`⚠️ 提示：\n${response.msg}`);
                     } else {
@@ -2252,18 +2273,17 @@ function getCalculatedPrice(product, basePrice) {
 
         if (product.category === "08") return price;
 
-        // 🌟 擴大特惠判定：只要是新增的周邊工具、一體針、機器，包含 TE, TF, TG, TH, TJ, TK, TB, TL, TC 以及 G 開頭的特殊品
-        let id = product.id;
-        let isSpecialTool = false;
-        if (id.startsWith('TE') || id.startsWith('TF') || id.startsWith('TG') || 
-            id.startsWith('TH') || id.startsWith('TJ') || id.startsWith('TK') || 
-            id.startsWith('TB') || id.startsWith('TL') || id.startsWith('TC') || 
-            id === 'G36' || id === 'G37') {
-            isSpecialTool = true;
+        // 🌟 1. 精準比對：只有完全符合這批清單或名稱包含德國極靜機的特定紋繡品，才套用新折數[cite: 1]
+        if (isTargetSpecial紋繡商品(product.id) || (product.name && product.name.includes("德國極靜多功能紋繡機"))) {
+            if (currentLevel === 'default' || currentLevel === 'kylie') {
+                return Math.round(price * 0.50); // 過路客5折、凱莉5折[cite: 1]
+            } else {
+                return Math.round(price * 0.30); // 其他會員3折[cite: 1]
+            }
         }
 
-        // 如果是這批特殊工具，或是原本的 07、09、02 分類，統一套用「未登入、一般、凱莉 5 折，其餘 3 折」
-        if (isSpecialTool || product.category === "07" || product.category === "09" || product.category === "02") {
+        // 2. 採耳、出清、美甲等原有特惠專區[cite: 1]
+        if (product.category === "07" || product.category === "09" || product.category === "02") {
             if (currentLevel === 'default' || currentLevel === 'normal' || currentLevel === 'kylie') {
                 return Math.round(price * 0.50); 
             } else {
@@ -2299,6 +2319,7 @@ function getCalculatedPrice(product, basePrice) {
             return Math.round(price * specRate);
         }
 
+        // 🌟 3. 其餘沒在名單內的所有紋繡商品（如 TA、EC系列等色乳），恢復原本的常態會員折扣計算[cite: 1]
         const rate = discountRates[currentLevel] || 1.0;
         return Math.round(price * rate);
     }
@@ -2392,7 +2413,6 @@ function getCalculatedPrice(product, basePrice) {
         p.lengths.forEach(l => {
             if (l.excludeCurl && l.excludeCurl.includes(c)) return;
 
-            // 咖啡色款 (E6_UP) 當粗度是 0.10 或 0.15 時，不顯示 MIX 9-12mm
             if (id === "E6_UP" && (t === "0.10" || t === "0.15") && l.val === "MIX 9-12mm") {
                 return;
             }
@@ -2423,11 +2443,13 @@ function getCalculatedPrice(product, basePrice) {
             let currentQty = quantities[qtyKey] || 0;
 
             let priceDisplayHtml = `NT ${finalPrice} / 盒`;
-            if (p.category === "09" || p.category === "02") {
+
+            // 🌟 只有在特定的特惠名單內或 09、02 專區，才在前台跑出原價劃線與折後價對照[cite: 1]
+            if (isTargetSpecial紋繡商品(p.id) || p.category === "09" || p.category === "02") {
                 if (p.isBundle) {
                     priceDisplayHtml = `<span style="color: #ef4444; font-size:12px; font-weight:bold;">[活動品] NT ${finalPrice} / 盒 (任選滿3盒自動享特惠價)</span>`;
                 } else {
-                    priceDisplayHtml = `<span style="text-decoration: line-through; color: #94a3b8; font-size: 12px; margin-right: 5px;">原價: NT ${l.p100}</span> <span style="color: #e74c3c;">特惠價: NT ${finalPrice}</span>`;
+                    priceDisplayHtml = `<span style="text-decoration: line-through; color: #94a3b8; font-size: 12px; margin-right: 5px;">原價: NT ${l.p100}</span> <span style="color: #e74c3c; font-weight: bold;">折後價: NT ${finalPrice}</span>`;
                 }
             }
 
@@ -2642,16 +2664,10 @@ function getCalculatedPrice(product, basePrice) {
                 quantities[qtyKey] = maxStock;
             }
 
-            // 🌟 判定此商品是否為特殊工具或機器系列（新增攔截 TC 開頭）
-            let isSpecialTool = (p.id.startsWith('TE') || p.id.startsWith('TF') || p.id.startsWith('TG') || 
-                                 p.id.startsWith('TH') || p.id.startsWith('TJ') || p.id.startsWith('TK') || 
-                                 p.id.startsWith('TB') || p.id.startsWith('TL') || p.id.startsWith('TC') || 
-                                 p.id === 'G36' || p.id === 'G37');
-
             let priceDisplayHtml = `NT ${finalPrice} / 單位`;
             
-            // 🌟 只要符合分類或特殊商品，一律在前台同時顯示「劃線原價」與「紅字折後價」
-            if (p.category === "07" || p.category === "09" || p.category === "02" || specialDiscountIds.includes(p.id) || isSpecialTool) {
+            // 🌟 核心控制：只有名單內的特定特惠紋繡品、或指定特惠專區，才在前台呈現原價與折後價劃線！其餘色乳系列直接乾淨呈現折後價[cite: 1]
+            if (isTargetSpecial紋繡商品(p.id) || (p.name && p.name.includes("德國極靜多功能紋繡機")) || p.category === "07" || p.category === "09" || p.category === "02" || specialDiscountIds.includes(p.id)) {
                 priceDisplayHtml = `<span style="text-decoration: line-through; color: #94a3b8; font-size: 12px; margin-right: 5px;">原價: NT ${p.p100}</span> <span style="color: #e74c3c; font-weight: bold;">折後價: NT ${finalPrice}</span>`;
             }
 
@@ -2793,7 +2809,7 @@ function getCalculatedPrice(product, basePrice) {
         const paymentMethod = document.getElementById('payment').value;
         let shipping = 0; let isLowTemp = false;
         if (subtotal > 0) {
-            if (shippingMethod === "門市自取") { shipping = 0; } 
+            if (shippingMethod === "門市自取") { shipping = 0; }
             else if (subtotal >= 3000) { 
                 if (shippingMethod === "常溫宅配" || shippingMethod === "7-11 店到店") shipping = 0;
                 else if (shippingMethod === "指定黑貓") shipping = 60; 
